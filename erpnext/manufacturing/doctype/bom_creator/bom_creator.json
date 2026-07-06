@@ -33,7 +33,6 @@
   "currency",
   "conversion_rate",
   "section_break_zcfg",
-  "default_warehouse",
   "column_break_tzot",
   "company",
   "materials_section",
@@ -237,12 +236,6 @@
   {
    "fieldname": "column_break_tzot",
    "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "default_warehouse",
-   "fieldtype": "Link",
-   "label": "Default Source Warehouse",
-   "options": "Warehouse"
   },
   {
    "fieldname": "bom_creator",

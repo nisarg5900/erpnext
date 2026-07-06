@@ -214,26 +214,6 @@ frappe.ui.form.on("BOM Creator Item", {
 			frappe.model.set_value(cdt, cdn, "fg_item", item.item_code);
 		}
 	},
-
-	do_not_explode(frm, cdt, cdn) {
-		let item = frappe.get_doc(cdt, cdn);
-		if (!item.do_not_explode) {
-			frm.call({
-				method: "get_default_bom",
-				doc: frm.doc,
-				args: {
-					item_code: item.item_code,
-				},
-				callback(r) {
-					if (r.message) {
-						frappe.model.set_value(cdt, cdn, "bom_no", r.message);
-					}
-				},
-			});
-		} else {
-			frappe.model.set_value(cdt, cdn, "bom_no", "");
-		}
-	},
 });
 
 erpnext.bom.BomConfigurator = class BomConfigurator extends erpnext.TransactionController {

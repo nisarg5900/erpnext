@@ -50,7 +50,6 @@ class BOMCreator(Document):
 		company: DF.Link
 		conversion_rate: DF.Float
 		currency: DF.Link
-		default_warehouse: DF.Link | None
 		error_log: DF.Text | None
 		is_phantom: DF.Check
 		item_code: DF.Link
