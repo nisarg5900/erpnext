@@ -436,11 +436,14 @@ class BOMCreator(Document):
 		if kwargs.fg_reference_id and self.name != kwargs.fg_reference_id:
 			parent_row_no = get_parent_row_no(self, kwargs.fg_reference_id)
 
+		resolved_uom, cf = _resolve_line_uom(kwargs.item_code, kwargs.get("uom"), item_info.stock_uom)
+		qty = flt(kwargs.get("qty") or 0)
 		kwargs.update(
 			{
-				"uom": item_info.stock_uom,
+				"uom": resolved_uom,
 				"stock_uom": item_info.stock_uom,
-				"conversion_factor": 1,
+				"conversion_factor": cf,
+				"stock_qty": qty * cf,
 			}
 		)
 
@@ -469,17 +472,22 @@ class BOMCreator(Document):
 			item_info = get_item_details(bom_item.item_code)
 			parent_row_no = get_parent_row_no(self, kwargs.fg_reference_id)
 
+			resolved_uom, cf = _resolve_line_uom(
+				bom_item.item_code, bom_item.get("uom"), item_info.stock_uom
+			)
+			qty = flt(bom_item.qty)
+
 			item_row = self.append(
 				"items",
 				{
 					"item_code": bom_item.item_code,
-					"qty": bom_item.qty,
-					"uom": item_info.stock_uom,
+					"qty": qty,
+					"uom": resolved_uom,
 					"fg_item": kwargs.fg_item,
-					"conversion_factor": 1,
+					"conversion_factor": cf,
 					"parent_row_no": parent_row_no,
 					"fg_reference_id": name,
-					"stock_qty": bom_item.qty,
+					"stock_qty": qty * cf,
 					"do_not_explode": 1,
 					"is_expandable": 1,
 					"stock_uom": item_info.stock_uom,
@@ -499,19 +507,21 @@ class BOMCreator(Document):
 		for row in bom_item.get("items"):
 			row = frappe._dict(row)
 			item_info = get_item_details(row.item_code)
+			resolved_uom, cf = _resolve_line_uom(row.item_code, row.get("uom"), item_info.stock_uom)
+			qty = flt(row.qty)
 			self.append(
 				"items",
 				{
 					"item_code": row.item_code,
-					"qty": row.qty,
+					"qty": qty,
 					"operation": row.operation,
 					"fg_item": bom_item.item_code,
-					"uom": item_info.stock_uom,
+					"uom": resolved_uom,
 					"fg_reference_id": name,
 					"parent_row_no": parent_row_no,
-					"conversion_factor": 1,
+					"conversion_factor": cf,
 					"do_not_explode": 1,
-					"stock_qty": row.qty,
+					"stock_qty": qty * cf,
 					"stock_uom": item_info.stock_uom,
 				},
 			)
@@ -597,6 +607,40 @@ def get_item_details(item_code):
 	return frappe.get_cached_value(
 		"Item", item_code, ["item_name", "description", "image", "stock_uom", "default_bom"], as_dict=1
 	)
+
+
+def _resolve_line_uom(item_code, uom, stock_uom):
+	"""Resolve a BOM Creator line's UOM and conversion factor.
+
+	Strict, item-specific:
+	  - Empty uom → default to stock_uom, cf=1.
+	  - uom == stock_uom → cf=1.
+	  - Otherwise, look up cf in the item's UOM Conversion Detail table.
+	    If the UOM isn't there, throw. We deliberately do NOT fall back to
+	    the global UOM Conversion Rate (as get_conversion_factor does),
+	    because that silently returns cf=1.0 for unmapped UOMs and produces
+	    silently-wrong stock quantities.
+	"""
+	resolved_uom = uom or stock_uom
+	if not resolved_uom:
+		return None, 1.0
+	if resolved_uom == stock_uom:
+		return resolved_uom, 1.0
+
+	cf = frappe.db.get_value(
+		"UOM Conversion Detail",
+		{"parent": item_code, "uom": resolved_uom},
+		"conversion_factor",
+	)
+	cf = flt(cf)
+	if not cf:
+		frappe.throw(
+			_(
+				"UOM {0} is not configured for Item {1}. Add it to the item's UOM Conversion table."
+			).format(bold(resolved_uom), bold(item_code)),
+			title=_("UOM Not Configured"),
+		)
+	return resolved_uom, cf
 
 
 def get_parent_row_no(doc, name):

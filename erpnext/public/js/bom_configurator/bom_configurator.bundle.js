@@ -229,33 +229,63 @@ class BOMConfigurator {
 	}
 
 	add_item(node, view) {
-		frappe.prompt(
-			[
-				{ label: __("Item"), fieldname: "item_code", fieldtype: "Link", options: "Item", reqd: 1 },
+		let dialog = new frappe.ui.Dialog({
+			title: __("Add Item"),
+			fields: [
+				{
+					label: __("Item"),
+					fieldname: "item_code",
+					fieldtype: "Link",
+					options: "Item",
+					reqd: 1,
+					change() {
+						let item_code = dialog.get_value("item_code");
+						if (item_code) {
+							frappe.db.get_value("Item", item_code, "stock_uom").then((r) => {
+								let stock_uom = r.message && r.message.stock_uom;
+								if (stock_uom && !dialog.get_value("uom")) {
+									dialog.set_value("uom", stock_uom);
+								}
+							});
+						}
+					},
+				},
 				{ label: __("Qty"), fieldname: "qty", default: 1.0, fieldtype: "Float", reqd: 1 },
+				{
+					label: __("UOM"),
+					fieldname: "uom",
+					fieldtype: "Link",
+					options: "UOM",
+					reqd: 1,
+					description: __(
+						"Must be listed in the item's UOM Conversion table. Server computes the conversion factor."
+					),
+				},
 			],
-			(data) => {
-				if (!node.data.parent_id) {
-					node.data.parent_id = this.frm.doc.name;
-				}
+		});
+		dialog.set_primary_action(__("Add"), () => {
+			let data = dialog.get_values();
+			if (!node.data.parent_id) {
+				node.data.parent_id = this.frm.doc.name;
+			}
 
-				frappe.call({
-					method: "add_item",
-					doc: this.frm.doc,
-					args: {
-						fg_item: node.data.value,
-						item_code: data.item_code,
-						fg_reference_id: node.data.name || this.frm.doc.name,
-						qty: data.qty,
-					},
-					callback: (r) => {
-						view.events.load_tree(r, node);
-					},
-				});
-			},
-			__("Add Item"),
-			__("Add")
-		);
+			frappe.call({
+				method: "add_item",
+				doc: this.frm.doc,
+				args: {
+					fg_item: node.data.value,
+					item_code: data.item_code,
+					fg_reference_id: node.data.name || this.frm.doc.name,
+					qty: data.qty,
+					uom: data.uom,
+				},
+				callback: (r) => {
+					view.events.load_tree(r, node);
+				},
+			});
+			dialog.hide();
+		});
+		dialog.show();
 	}
 
 	set_query_for_workstation(dialog) {
@@ -388,10 +418,20 @@ class BOMConfigurator {
 							options: "Item",
 							reqd: 1,
 							in_list_view: 1,
+							columns: 3,
 							change() {
 								let doc = this.doc;
 								doc.qty = 1.0;
 								this.grid.set_value("qty", 1.0, doc);
+								// Default UOM to the item's stock UOM; user can override.
+								if (doc.item_code) {
+									frappe.db.get_value("Item", doc.item_code, "stock_uom").then((r) => {
+										let stock_uom = r.message && r.message.stock_uom;
+										if (stock_uom) {
+											this.grid.set_value("uom", stock_uom, doc);
+										}
+									});
+								}
 							},
 						},
 						{
@@ -401,6 +441,19 @@ class BOMConfigurator {
 							fieldtype: "Float",
 							reqd: 1,
 							in_list_view: 1,
+							columns: 2,
+						},
+						{
+							label: __("UOM"),
+							fieldname: "uom",
+							fieldtype: "Link",
+							options: "UOM",
+							reqd: 1,
+							in_list_view: 1,
+							columns: 2,
+							description: __(
+								"Must be listed in the item's UOM Conversion table. Server computes the conversion factor."
+							),
 						},
 					],
 				},
