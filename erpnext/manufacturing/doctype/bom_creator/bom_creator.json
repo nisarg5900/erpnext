@@ -47,6 +47,11 @@
   "column_break_irab",
   "error_log",
   "connections_tab",
+  "output_control_section",
+  "output_mode",
+  "column_break_output",
+  "set_as_default",
+  "is_active",
   "amended_from"
  ],
  "fields": [
@@ -228,6 +233,37 @@
    "options": "BOM Creator",
    "print_hide": 1,
    "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "output_control_section",
+   "fieldtype": "Section Break",
+   "label": "Output Control (applies to the root FG's generated BOM)"
+  },
+  {
+   "default": "Submit",
+   "fieldname": "output_mode",
+   "fieldtype": "Select",
+   "label": "Output Mode",
+   "options": "Submit\nDraft",
+   "description": "Draft leaves the generated BOMs as drafts so you can review before committing."
+  },
+  {
+   "fieldname": "column_break_output",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "set_as_default",
+   "fieldtype": "Check",
+   "label": "Set as Default BOM",
+   "description": "If checked, the generated BOM for this finished good becomes the default. Uncheck to preserve any existing default."
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active"
   },
   {
    "fieldname": "section_break_zcfg",

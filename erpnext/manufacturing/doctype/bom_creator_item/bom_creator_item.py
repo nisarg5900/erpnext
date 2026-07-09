@@ -24,6 +24,7 @@ class BOMCreatorItem(Document):
 		fg_item: DF.Link
 		fg_reference_id: DF.Data | None
 		instruction: DF.SmallText | None
+		is_active: DF.Check
 		is_expandable: DF.Check
 		is_phantom_item: DF.Check
 		is_subcontracted: DF.Check
@@ -37,6 +38,7 @@ class BOMCreatorItem(Document):
 		parenttype: DF.Data
 		qty: DF.Float
 		rate: DF.Currency
+		set_as_default: DF.Check
 		sourced_by_supplier: DF.Check
 		stock_qty: DF.Float
 		stock_uom: DF.Link | None

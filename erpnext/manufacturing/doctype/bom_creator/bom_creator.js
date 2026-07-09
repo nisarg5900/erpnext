@@ -201,8 +201,44 @@ frappe.ui.form.on("BOM Creator", {
 
 	create_multi_level_bom(frm) {
 		frm.call({
-			method: "enqueue_create_boms",
+			method: "get_supersede_preview",
 			doc: frm.doc,
+		}).then((r) => {
+			const preview = r.message || [];
+			const proceed = () => {
+				frm.call({ method: "enqueue_create_boms", doc: frm.doc });
+			};
+
+			if (!preview.length) {
+				proceed();
+				return;
+			}
+
+			const rows = preview
+				.map(
+					(p) =>
+						`<tr>
+							<td>${frappe.utils.escape_html(p.item)}</td>
+							<td>${frappe.utils.escape_html(p.existing_default_bom)}</td>
+						</tr>`
+				)
+				.join("");
+
+			const body =
+				`<p>${__(
+					"The default BOM for the following items will be replaced by the newly-generated BOMs:"
+				)}</p>` +
+				`<div style="max-height: 240px; overflow-y: auto;">` +
+				`<table class="table table-bordered">` +
+				`<thead><tr><th>${__("Item")}</th><th>${__(
+					"Existing Default BOM"
+				)}</th></tr></thead>` +
+				`<tbody>${rows}</tbody></table></div>` +
+				`<p>${__(
+					"Uncheck 'Set as Default BOM' on those items and rerun if you want to keep the current defaults."
+				)}</p>`;
+
+			frappe.confirm(body, proceed);
 		});
 	},
 });

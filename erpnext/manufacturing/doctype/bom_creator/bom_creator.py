@@ -52,11 +52,13 @@ class BOMCreator(Document):
 		currency: DF.Link
 		default_warehouse: DF.Link | None
 		error_log: DF.Text | None
+		is_active: DF.Check
 		is_phantom: DF.Check
 		item_code: DF.Link
 		item_group: DF.Link | None
 		item_name: DF.Data | None
 		items: DF.Table[BOMCreatorItem]
+		output_mode: DF.Literal["Submit", "Draft"]
 		plc_conversion_rate: DF.Float
 		price_list_currency: DF.Link | None
 		project: DF.Link | None
@@ -65,6 +67,7 @@ class BOMCreator(Document):
 		remarks: DF.TextEditor | None
 		rm_cost_as_per: DF.Literal["Valuation Rate", "Last Purchase Rate", "Price List"]
 		routing: DF.Link | None
+		set_as_default: DF.Check
 		set_rate_based_on_warehouse: DF.Check
 		status: DF.Literal["Draft", "Submitted", "In Progress", "Completed", "Failed", "Cancelled"]
 		uom: DF.Link | None
@@ -360,6 +363,14 @@ class BOMCreator(Document):
 			if self.get(field):
 				bom.set(field, self.get(field))
 
+		# Per-FG default/active control. `row` is either self (the header)
+		# for the root FG or a BOM Creator Item for a sub-assembly FG; both
+		# now expose set_as_default / is_active with default 1 (preserves
+		# the pre-existing "everything becomes default" behaviour when the
+		# user doesn't change anything).
+		bom.is_default = cint(row.get("set_as_default") if row.get("set_as_default") is not None else 1)
+		bom.is_active = cint(row.get("is_active") if row.get("is_active") is not None else 1)
+
 		for item in production_item_wise_rm[(row.item_code, row.name)]["items"]:
 			bom_no = ""
 			item.do_not_explode = 1
@@ -382,9 +393,53 @@ class BOMCreator(Document):
 			bom.append("items", item_args)
 
 		bom.save(ignore_permissions=True)
-		bom.submit()
+		# Draft output mode leaves the generated BOMs as drafts (docstatus=0)
+		# so the user can review before committing. Default "Submit" preserves
+		# the pre-existing behaviour.
+		if (self.output_mode or "Submit") != "Draft":
+			bom.submit()
 
 		production_item_wise_rm[(row.item_code, row.name)].bom_no = bom.name
+
+	@frappe.whitelist()
+	def get_supersede_preview(self):
+		"""List FGs whose existing default BOM would be replaced by generation.
+
+		Returns a list of {item, existing_default_bom, will_become_default}
+		entries for items where (a) `set_as_default` on the row is truthy or
+		unset, and (b) the item already has a submitted default BOM.
+		Client shows this before triggering create_boms.
+		"""
+		preview = []
+
+		def _consider(item_code, set_as_default):
+			if not item_code:
+				return
+			will_default = cint(set_as_default if set_as_default is not None else 1)
+			if not will_default:
+				return
+			existing = frappe.db.get_value(
+				"BOM",
+				{"item": item_code, "is_default": 1, "is_active": 1, "docstatus": 1},
+				"name",
+			)
+			if existing:
+				preview.append(
+					{
+						"item": item_code,
+						"existing_default_bom": existing,
+						"will_become_default": True,
+					}
+				)
+
+		# Root FG (from the header).
+		_consider(self.item_code, self.get("set_as_default"))
+		# Sub-assembly FGs (each expandable row).
+		for row in self.items:
+			if row.is_expandable and row.item_code != self.item_code:
+				_consider(row.item_code, row.get("set_as_default"))
+
+		return preview
 
 	@frappe.whitelist()
 	def edit_bom_creator(self, docname: str, data: str | dict):
