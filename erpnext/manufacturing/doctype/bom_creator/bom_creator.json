@@ -47,6 +47,7 @@
   "column_break_irab",
   "error_log",
   "connections_tab",
+  "imported_from_bom",
   "amended_from"
  ],
  "fields": [
@@ -228,6 +229,15 @@
    "options": "BOM Creator",
    "print_hide": 1,
    "read_only": 1
+  },
+  {
+   "fieldname": "imported_from_bom",
+   "fieldtype": "Link",
+   "label": "Imported From BOM",
+   "options": "BOM",
+   "no_copy": 1,
+   "read_only": 1,
+   "description": "Set when this BOM Creator was reconstructed from an existing BOM. Tracks lineage for future regeneration / cancel-and-amend workflows."
   },
   {
    "fieldname": "section_break_zcfg",

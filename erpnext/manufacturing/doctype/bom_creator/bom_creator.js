@@ -192,11 +192,51 @@ frappe.ui.form.on("BOM Creator", {
 			});
 		}
 
+		if (frm.is_new()) {
+			frm.add_custom_button(__("Import from BOM"), () => {
+				frm.trigger("import_from_bom");
+			});
+		}
+
 		if (frm.doc.docstatus === 1 && frm.doc.status !== "Completed") {
 			frm.add_custom_button(__("Create Multi-level BOM"), () => {
 				frm.trigger("create_multi_level_bom");
 			});
 		}
+	},
+
+	import_from_bom(frm) {
+		const dialog = new frappe.ui.Dialog({
+			title: __("Import from an existing BOM"),
+			fields: [
+				{
+					label: __("BOM"),
+					fieldname: "bom_name",
+					fieldtype: "Link",
+					options: "BOM",
+					reqd: 1,
+					get_query() {
+						return { filters: { docstatus: 1 } };
+					},
+				},
+			],
+		});
+		dialog.set_primary_action(__("Import"), () => {
+			const data = dialog.get_values();
+			frappe.call({
+				method: "erpnext.manufacturing.doctype.bom_creator.bom_creator.import_from_bom",
+				args: { bom_name: data.bom_name },
+				freeze: true,
+				freeze_message: __("Reconstructing BOM Creator tree..."),
+				callback(r) {
+					if (r.message) {
+						dialog.hide();
+						frappe.set_route("Form", "BOM Creator", r.message);
+					}
+				},
+			});
+		});
+		dialog.show();
 	},
 
 	create_multi_level_bom(frm) {

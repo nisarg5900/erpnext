@@ -52,6 +52,7 @@ class BOMCreator(Document):
 		currency: DF.Link
 		default_warehouse: DF.Link | None
 		error_log: DF.Text | None
+		imported_from_bom: DF.Link | None
 		is_phantom: DF.Check
 		item_code: DF.Link
 		item_group: DF.Link | None
@@ -597,6 +598,72 @@ def get_item_details(item_code):
 	return frappe.get_cached_value(
 		"Item", item_code, ["item_name", "description", "image", "stock_uom", "default_bom"], as_dict=1
 	)
+
+
+@frappe.whitelist()
+def import_from_bom(bom_name: str) -> str:
+	"""Reconstruct a BOM Creator tree from an existing (submitted) BOM.
+
+	Walks the BOM's items table depth-first, adding a BOM Creator Item row
+	per BOM Item, following child `bom_no` links to reconstruct
+	sub-assembly branches. Sub-assembly grandchildren are inlined into the
+	same tree, matching how the BOM Creator represents multi-level BOMs.
+
+	Returns the name of the new BOM Creator (Draft), which the caller can
+	open in the tree UI for editing.
+	"""
+	root_bom = frappe.get_doc("BOM", bom_name)
+
+	bc = frappe.new_doc("BOM Creator")
+	bc.name = f"IMPORT-{root_bom.item}-{frappe.generate_hash(length=6)}"
+	bc.item_code = root_bom.item
+	bc.qty = root_bom.quantity or 1
+	bc.company = root_bom.company
+	bc.currency = root_bom.currency
+	bc.conversion_rate = root_bom.conversion_rate or 1
+	bc.rm_cost_as_per = root_bom.rm_cost_as_per or "Valuation Rate"
+	bc.buying_price_list = root_bom.buying_price_list
+	bc.project = root_bom.project
+	bc.imported_from_bom = bom_name
+
+	_import_walk_bom(bc, root_bom, parent_row_no=None, visited={root_bom.name})
+
+	bc.insert(ignore_permissions=True)
+	return bc.name
+
+
+def _import_walk_bom(bc, bom, parent_row_no, visited):
+	"""Depth-first walk. `parent_row_no` is the 1-based idx of the
+	sub-assembly row this branch belongs under (None for direct children
+	of the root FG). We predict the new row's idx as the 1-based position
+	in the items list — Frappe assigns idx by position at save time."""
+	for item in bom.items:
+		row_data = {
+			"item_code": item.item_code,
+			"qty": item.qty,
+			"uom": item.uom,
+			"stock_uom": item.stock_uom,
+			"conversion_factor": item.conversion_factor or 1,
+			"stock_qty": item.stock_qty or (flt(item.qty) * flt(item.conversion_factor or 1)),
+			"rate": item.rate,
+			"operation": item.operation,
+			"fg_item": bom.item,
+			"do_not_explode": 1,
+			"is_phantom_item": cint(item.get("is_phantom_item")),
+		}
+		if parent_row_no is not None:
+			row_data["parent_row_no"] = str(parent_row_no)
+		bc.append("items", row_data)
+		new_idx = len(bc.items)  # predicted 1-based idx of just-appended row
+
+		if item.bom_no:
+			if item.bom_no in visited:
+				frappe.throw(
+					_("Cycle detected while importing BOM tree at {0}").format(item.bom_no),
+					title=_("Cyclic BOM Reference"),
+				)
+			child_bom = frappe.get_doc("BOM", item.bom_no)
+			_import_walk_bom(bc, child_bom, parent_row_no=new_idx, visited=visited | {item.bom_no})
 
 
 def get_parent_row_no(doc, name):
