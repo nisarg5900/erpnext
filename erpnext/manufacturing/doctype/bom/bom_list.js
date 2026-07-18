@@ -11,6 +11,11 @@ frappe.listview_settings["BOM"] = {
 			return [__("Not active"), "gray", "is_active,=,0"];
 		}
 	},
+	onload(listview) {
+		listview.page.add_inner_button(__("Create via BOM Creator"), () => {
+			frappe.set_route("Form", "BOM Creator", "new");
+		});
+	},
 };
 
 frappe.help.youtube_id["BOM"] = "hDV0c1OeWLo";

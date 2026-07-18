@@ -457,7 +457,14 @@
  "restrict_to_domain": "",
  "roles": [],
  "sequence_id": 8.0,
- "shortcuts": [],
+ "shortcuts": [
+  {
+   "color": "Blue",
+   "label": "BOM Creator",
+   "link_to": "BOM Creator",
+   "type": "DocType"
+  }
+ ],
  "title": "Manufacturing",
  "type": "Workspace"
 }

@@ -212,6 +212,16 @@ frappe.ui.form.on("BOM", {
 	refresh(frm) {
 		frm.toggle_enable("item", frm.doc.__islocal);
 
+		if (frm.is_new()) {
+			frm.add_custom_button(
+				__("Switch to BOM Creator"),
+				() => {
+					frappe.set_route("Form", "BOM Creator", "new");
+				},
+				__("Create")
+			);
+		}
+
 		frm.trigger("toggle_fields_for_semi_finished_goods");
 
 		frm.set_indicator_formatter("item_code", function (doc) {
