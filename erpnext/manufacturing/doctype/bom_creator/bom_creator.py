@@ -286,6 +286,12 @@ class BOMCreator(Document):
 
 		for row in self.items:
 			if row.is_expandable:
+				# Phase 5: linked sub-assemblies reuse an existing submitted BOM
+				# instead of generating a new child BOM. Skip registration so
+				# create_bom isn't called for this node. The parent BOM's item
+				# line will point at row.linked_bom directly (below in create_bom).
+				if row.get("linked_bom"):
+					continue
 				if (row.item_code, row.name) not in production_item_wise_rm:
 					production_item_wise_rm.setdefault(
 						(row.item_code, row.name),
@@ -363,7 +369,13 @@ class BOMCreator(Document):
 		for item in production_item_wise_rm[(row.item_code, row.name)]["items"]:
 			bom_no = ""
 			item.do_not_explode = 1
-			if (item.item_code, item.name) in production_item_wise_rm:
+			# Phase 5: honour a pre-linked BOM (from #38438). If set, the
+			# parent BOM's item line points at the linked BOM and we do not
+			# expect (nor produce) a generated child in production_item_wise_rm.
+			if item.get("linked_bom"):
+				bom_no = item.linked_bom
+				item.do_not_explode = 0
+			elif (item.item_code, item.name) in production_item_wise_rm:
 				bom_no = production_item_wise_rm.get((item.item_code, item.name)).bom_no
 				item.do_not_explode = 0
 
@@ -465,6 +477,18 @@ class BOMCreator(Document):
 		name = kwargs.fg_reference_id
 		parent_row_no = ""
 
+		# Phase 5: link-only sub-assemblies reuse the item's default BOM
+		# and don't add raw material rows.  Addresses #38438.
+		link_only = sbool(bom_item.get("link_only"))
+		linked_bom = None
+		if link_only:
+			linked_bom = frappe.db.get_value("Item", bom_item.item_code, "default_bom")
+			if not linked_bom:
+				frappe.throw(
+					_("Item {0} has no Default BOM to link.").format(bold(bom_item.item_code)),
+					title=_("No Default BOM"),
+				)
+
 		if not kwargs.convert_to_sub_assembly:
 			item_info = get_item_details(bom_item.item_code)
 			parent_row_no = get_parent_row_no(self, kwargs.fg_reference_id)
@@ -485,6 +509,7 @@ class BOMCreator(Document):
 					"stock_uom": item_info.stock_uom,
 					"operation": bom_item.operation,
 					"is_phantom_item": sbool(kwargs.phantom),
+					"linked_bom": linked_bom,
 				},
 			)
 
@@ -496,25 +521,28 @@ class BOMCreator(Document):
 				parent_row.is_phantom_item = 1
 			parent_row_no = get_parent_row_no(self, kwargs.fg_reference_id)
 
-		for row in bom_item.get("items"):
-			row = frappe._dict(row)
-			item_info = get_item_details(row.item_code)
-			self.append(
-				"items",
-				{
-					"item_code": row.item_code,
-					"qty": row.qty,
-					"operation": row.operation,
-					"fg_item": bom_item.item_code,
-					"uom": item_info.stock_uom,
-					"fg_reference_id": name,
-					"parent_row_no": parent_row_no,
-					"conversion_factor": 1,
-					"do_not_explode": 1,
-					"stock_qty": row.qty,
-					"stock_uom": item_info.stock_uom,
-				},
-			)
+		# Linked sub-assemblies don't get raw material rows — the linked BOM
+		# is the source of truth for downstream.
+		if not link_only:
+			for row in bom_item.get("items"):
+				row = frappe._dict(row)
+				item_info = get_item_details(row.item_code)
+				self.append(
+					"items",
+					{
+						"item_code": row.item_code,
+						"qty": row.qty,
+						"operation": row.operation,
+						"fg_item": bom_item.item_code,
+						"uom": item_info.stock_uom,
+						"fg_reference_id": name,
+						"parent_row_no": parent_row_no,
+						"conversion_factor": 1,
+						"do_not_explode": 1,
+						"stock_qty": row.qty,
+						"stock_uom": item_info.stock_uom,
+					},
+				)
 
 		self.save()
 
@@ -597,6 +625,40 @@ def get_item_details(item_code):
 	return frappe.get_cached_value(
 		"Item", item_code, ["item_name", "description", "image", "stock_uom", "default_bom"], as_dict=1
 	)
+
+
+@frappe.whitelist()
+def get_default_bom_items(item_code: str) -> dict | None:
+	"""Return the raw material rows of `item_code`'s default BOM, so the
+	Add Sub Assembly dialog can pre-fill its Raw Materials grid.
+
+	Returns None when the item has no default BOM.  Otherwise returns
+	{"default_bom": <name>, "items": [...rows]} — one dict per BOM Item,
+	in table order, with the fields the dialog knows how to consume.
+	Addresses #42932.
+	"""
+	if not item_code:
+		return None
+	default_bom = frappe.db.get_value("Item", item_code, "default_bom")
+	if not default_bom:
+		return None
+	items = frappe.get_all(
+		"BOM Item",
+		filters={"parent": default_bom, "parenttype": "BOM"},
+		fields=[
+			"item_code",
+			"qty",
+			"uom",
+			"stock_uom",
+			"conversion_factor",
+			"stock_qty",
+			"rate",
+			"operation",
+			"bom_no",
+		],
+		order_by="idx",
+	)
+	return {"default_bom": default_bom, "items": items}
 
 
 def get_parent_row_no(doc, name):

@@ -27,6 +27,7 @@ class BOMCreatorItem(Document):
 		is_expandable: DF.Check
 		is_phantom_item: DF.Check
 		is_subcontracted: DF.Check
+		linked_bom: DF.Link | None
 		item_code: DF.Link
 		item_group: DF.Link | None
 		item_name: DF.Data | None

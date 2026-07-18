@@ -327,6 +327,43 @@ class BOMConfigurator {
 				filters: {
 					is_stock_item: !phantom,
 				},
+				change() {
+					// Phase 5: auto-populate Raw Materials from the item's
+					// default BOM. Addresses #42932.
+					const item_code = this.value;
+					const dialog = this.layout ? this.layout.dialog : null;
+					if (!item_code || !dialog) return;
+					frappe.call({
+						method:
+							"erpnext.manufacturing.doctype.bom_creator.bom_creator.get_default_bom_items",
+						args: { item_code },
+						callback(r) {
+							if (!r.message) return;
+							const info = r.message;
+							const grid = dialog.fields_dict.items.grid;
+							// Only prefill when the user hasn't started editing.
+							if (grid.data && grid.data.some((row) => row.item_code)) {
+								return;
+							}
+							grid.df.data = info.items.map((it) => ({
+								item_code: it.item_code,
+								qty: it.qty,
+								uom: it.uom,
+								conversion_factor: it.conversion_factor,
+								stock_qty: it.stock_qty,
+								operation: it.operation,
+							}));
+							grid.refresh();
+							dialog.set_df_property(
+								"link_only",
+								"description",
+								__("Reuse {0} as-is (linked). Raw materials above are shown for reference.", [
+									info.default_bom,
+								])
+							);
+						},
+					});
+				},
 			},
 			{ fieldtype: "Column Break" },
 			{
@@ -343,6 +380,15 @@ class BOMConfigurator {
 
 					this.layout.fields_dict.items.grid.refresh();
 				},
+			},
+			{
+				fieldname: "link_only",
+				label: __("Link BOM as-is (reuse; don't generate new)"),
+				fieldtype: "Check",
+				default: 0,
+				description: __(
+					"Requires the item to have a Default BOM. Addresses #38438."
+				),
 			},
 		];
 

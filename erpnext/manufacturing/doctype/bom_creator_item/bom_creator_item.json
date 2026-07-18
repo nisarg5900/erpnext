@@ -12,6 +12,7 @@
   "column_break_f63f",
   "fg_item",
   "is_expandable",
+  "linked_bom",
   "sourced_by_supplier",
   "bom_created",
   "is_subcontracted",
@@ -252,6 +253,14 @@
    "fieldtype": "Check",
    "label": "Is Subcontracted",
    "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.is_expandable",
+   "fieldname": "linked_bom",
+   "fieldtype": "Link",
+   "label": "Linked BOM",
+   "options": "BOM",
+   "description": "When set, the sub-assembly reuses this submitted BOM instead of generating a new one. See #38438."
   },
   {
    "default": "0",
