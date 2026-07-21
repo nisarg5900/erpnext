@@ -300,6 +300,77 @@
    "fieldtype": "Check",
    "label": "Is Phantom Item",
    "read_only": 1
+  },
+  {
+   "fieldname": "nbc_layer2_section",
+   "fieldtype": "Section Break",
+   "label": "Warehouses & Quality",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "default_source_warehouse",
+   "fieldtype": "Link",
+   "options": "Warehouse",
+   "label": "Default Source Warehouse"
+  },
+  {
+   "fieldname": "nbc_layer2_column_break",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "default_target_warehouse",
+   "fieldtype": "Link",
+   "options": "Warehouse",
+   "label": "Default Target Warehouse"
+  },
+  {
+   "fieldname": "inspection_required",
+   "fieldtype": "Check",
+   "label": "Inspection Required"
+  },
+  {
+   "fieldname": "quality_inspection_template",
+   "fieldtype": "Link",
+   "options": "Quality Inspection Template",
+   "label": "Quality Inspection Template",
+   "depends_on": "inspection_required"
+  },
+  {
+   "fieldname": "backflush_based_on",
+   "fieldtype": "Select",
+   "label": "Backflush Based On",
+   "options": "BOM\nMaterial Transferred for Manufacture"
+  },
+  {
+   "fieldname": "nbc_operations_section",
+   "fieldtype": "Section Break",
+   "label": "Operations",
+   "collapsible": 1,
+   "depends_on": "routing"
+  },
+  {
+   "fieldname": "transfer_material_against",
+   "fieldtype": "Select",
+   "label": "Transfer Material Against",
+   "options": "\nWork Order\nJob Card",
+   "depends_on": "routing"
+  },
+  {
+   "fieldname": "fg_based_operating_cost",
+   "fieldtype": "Check",
+   "label": "FG Based Operating Cost",
+   "depends_on": "routing"
+  },
+  {
+   "fieldname": "nbc_process_loss_section",
+   "fieldtype": "Section Break",
+   "label": "Process Loss",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "process_loss_percentage",
+   "fieldtype": "Percent",
+   "label": "% Process Loss"
   }
  ],
  "hide_toolbar": 1,
@@ -311,7 +382,7 @@
    "link_fieldname": "bom_creator"
   }
  ],
- "modified": "2026-04-16 20:43:30.820781",
+ "modified": "2026-07-21 13:00:00.000000",
  "modified_by": "Administrator",
  "module": "Manufacturing",
  "name": "BOM Creator",

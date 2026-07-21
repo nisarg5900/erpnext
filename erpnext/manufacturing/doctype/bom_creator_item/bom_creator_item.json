@@ -259,12 +259,30 @@
    "fieldtype": "Check",
    "label": "Is Phantom Item",
    "read_only": 1
+  },
+  {
+   "fieldname": "source_warehouse",
+   "fieldtype": "Link",
+   "options": "Warehouse",
+   "label": "Source Warehouse"
+  },
+  {
+   "fieldname": "allow_alternative_item",
+   "fieldtype": "Check",
+   "label": "Allow Alternative Item",
+   "default": "1"
+  },
+  {
+   "fieldname": "include_item_in_manufacturing",
+   "fieldtype": "Check",
+   "label": "Include Item In Manufacturing",
+   "default": "1"
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-11-05 21:15:55.187671",
+ "modified": "2026-07-21 13:00:00.000000",
  "modified_by": "Administrator",
  "module": "Manufacturing",
  "name": "BOM Creator Item",

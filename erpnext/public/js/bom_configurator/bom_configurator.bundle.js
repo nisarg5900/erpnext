@@ -152,6 +152,17 @@ class BOMConfigurator {
 								btnClass: "hidden-xs",
 							},
 							{
+								label: __(frappe.utils.icon("add", "sm") + " Labour"),
+								click: function (node) {
+									let view = frappe.views.trees["BOM Configurator"];
+									view.events.add_labour(node, view);
+								},
+								condition: function (node) {
+									return node.expandable;
+								},
+								btnClass: "hidden-xs",
+							},
+							{
 								label: __("Collapse All"),
 								click: function (node) {
 									let view = frappe.views.trees["BOM Configurator"];
@@ -256,6 +267,76 @@ class BOMConfigurator {
 			__("Add Item"),
 			__("Add")
 		);
+	}
+
+	add_labour(node, view) {
+		const dialog = new frappe.ui.Dialog({
+			title: __("Add Labour Charge"),
+			fields: [
+				{
+					label: __("Service Item"),
+					fieldname: "item_code",
+					fieldtype: "Link",
+					options: "Item",
+					reqd: 1,
+					get_query() {
+						return { filters: { is_stock_item: 0 } };
+					},
+					change() {
+						const ic = dialog.get_value("item_code");
+						if (ic) {
+							frappe.db.get_value("Item", ic, "stock_uom").then((r) => {
+								const su = r.message && r.message.stock_uom;
+								if (su) dialog.set_value("uom", su);
+							});
+						}
+					},
+				},
+				{
+					label: __("Qty"),
+					fieldname: "qty",
+					fieldtype: "Float",
+					default: 1.0,
+					reqd: 1,
+				},
+				{
+					label: __("Rate"),
+					fieldname: "rate",
+					fieldtype: "Currency",
+					description: __("Piece-rate or per-unit labour cost"),
+				},
+				{
+					label: __("UOM"),
+					fieldname: "uom",
+					fieldtype: "Link",
+					options: "UOM",
+					reqd: 1,
+				},
+			],
+		});
+		dialog.set_primary_action(__("Add"), () => {
+			const data = dialog.get_values();
+			if (!node.data.parent_id) {
+				node.data.parent_id = this.frm.doc.name;
+			}
+			frappe.call({
+				method: "add_item",
+				doc: this.frm.doc,
+				args: {
+					fg_item: node.data.value,
+					item_code: data.item_code,
+					fg_reference_id: node.data.name || this.frm.doc.name,
+					qty: data.qty,
+					uom: data.uom,
+					rate: data.rate || 0,
+				},
+				callback: (r) => {
+					view.events.load_tree(r, node);
+				},
+			});
+			dialog.hide();
+		});
+		dialog.show();
 	}
 
 	set_query_for_workstation(dialog) {
