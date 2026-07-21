@@ -1,3 +1,55 @@
+const _NBC_LEVEL_PALETTE = [
+	{ bg: "var(--blue-100)", text: "var(--blue-700)", border: "var(--blue-300)" },
+	{ bg: "var(--cyan-100)", text: "var(--cyan-700)", border: "var(--cyan-300)" },
+	{ bg: "var(--green-100)", text: "var(--green-700)", border: "var(--green-300)" },
+	{ bg: "var(--orange-100)", text: "var(--orange-700)", border: "var(--orange-300)" },
+	{ bg: "var(--gray-100)", text: "var(--gray-700)", border: "var(--gray-300)" },
+];
+
+function _nbc_get_level(node) {
+	let level = 0;
+	let n = node;
+	while (n.parent_node) {
+		level++;
+		n = n.parent_node;
+	}
+	return level;
+}
+
+function _nbc_level_color(level) {
+	return _NBC_LEVEL_PALETTE[Math.min(level, _NBC_LEVEL_PALETTE.length - 1)];
+}
+
+if (!document.getElementById("nbc-level-styles")) {
+	const style = document.createElement("style");
+	style.id = "nbc-level-styles";
+	style.textContent = `
+		.nbc-level-badge {
+			display: inline-block;
+			font-size: 10px;
+			font-weight: 600;
+			padding: 1px 6px;
+			border-radius: 3px;
+			margin-right: 6px;
+			line-height: 16px;
+			vertical-align: middle;
+			letter-spacing: 0.3px;
+		}
+		.nbc-level-bar {
+			display: flex;
+			align-items: center;
+			gap: 4px;
+			margin-bottom: 8px;
+			padding: 4px 0;
+		}
+		.nbc-level-bar .btn { padding: 2px 10px; font-size: 11px; }
+		.nbc-level-bar .btn.btn-primary-dark { background-color: var(--primary); color: #fff; }
+		.nbc-level-bar-label { font-size: 11px; color: var(--text-muted); margin-right: 4px; white-space: nowrap; }
+		.tree-node .nbc-node-border { border-left: 3px solid transparent; padding-left: 4px; }
+	`;
+	document.head.appendChild(style);
+}
+
 class BOMConfigurator {
 	constructor({ wrapper, page, frm, bom_configurator }) {
 		this.$wrapper = $(wrapper);
@@ -89,6 +141,9 @@ class BOMConfigurator {
 
 				amount = frappe.format(amount, { fieldtype: "Currency", currency: frm_obj.frm.doc.currency });
 
+				const level = _nbc_get_level(node);
+				const colors = _nbc_level_color(level);
+
 				$(`
 					<div class="pill small pull-right bom-qty-pill"
 						style="background-color: var(--bg-white);
@@ -99,6 +154,7 @@ class BOMConfigurator {
 							min-width: 128px;
 							border: 1px solid var(--bg-gray);
 						">
+							<span class="nbc-level-badge" style="background:${colors.bg};color:${colors.text};border:1px solid ${colors.border}">L${level}</span>
 							<div style="padding-right:5px" data-bom-qty-docname="${docname}">${qty} ${uom}</div>
 							<div class="fg-item-amt" style="padding-left:12px; border-left:1px solid var(--bg-gray)">
 								${amount}
@@ -106,6 +162,10 @@ class BOMConfigurator {
 					</div>
 
 				`).insertBefore(node.$ul);
+
+				if (node.$tree_link && !node.$tree_link.hasClass("nbc-node-border")) {
+					node.$tree_link.addClass("nbc-node-border").css("border-left-color", colors.border);
+				}
 			},
 			toolbar:
 				this.frm?.doc.docstatus === 0
@@ -535,6 +595,54 @@ class BOMConfigurator {
 		$(main_div).find(".tree-children")[0].style.minHeight = "370px";
 		$(main_div).find(".tree-children")[0].style.maxHeight = "370px";
 		$(main_div).find(".tree-children")[0].style.overflowY = "auto";
+
+		const $main = $(main_div);
+		if ($main.find(".nbc-level-bar").length) return;
+
+		const $bar = $(`
+			<div class="nbc-level-bar">
+				<span class="nbc-level-bar-label">${__("Expand to level")}:</span>
+			</div>
+		`);
+
+		function expandToLevel(targetLevel) {
+			const tree = frappe.views.trees["BOM Configurator"]?.tree;
+			if (!tree) return;
+			const root = tree.root_node;
+			if (!root.loaded) tree.load_children(root, true);
+
+			Object.values(tree.nodes).forEach((n) => {
+				if (!n.expandable) return;
+				const lvl = _nbc_get_level(n);
+				if (lvl < targetLevel) {
+					if (!n.expanded) { n.$ul.show(); n.expanded = true; }
+				} else if (n.expanded) {
+					n.$ul.hide(); n.expanded = false;
+				}
+			});
+			$bar.find(".btn").removeClass("btn-primary-dark btn-primary").addClass("btn-default");
+			$bar.find(`.btn[data-nbc-level="${targetLevel}"]`).removeClass("btn-default").addClass("btn-primary-dark");
+		}
+
+		for (let i = 1; i <= 5; i++) {
+			const $btn = $(`<button class="btn btn-xs btn-default" data-nbc-level="${i}">${i}</button>`);
+			$btn.on("click", () => expandToLevel(i));
+			$bar.append($btn);
+		}
+
+		const $allBtn = $(`<button class="btn btn-xs btn-default" data-nbc-level="99">${__("All")}</button>`);
+		$allBtn.on("click", () => {
+			const tree = frappe.views.trees["BOM Configurator"]?.tree;
+			if (!tree) return;
+			tree.load_children(tree.root_node, true);
+			$(tree.root_node.parent ? tree.root_node.parent.get(0) : $main.get(0))
+				.find(".tree-children").show();
+			Object.values(tree.nodes).forEach((n) => { if (n.expandable) n.expanded = true; });
+			$bar.find(".btn").removeClass("btn-primary-dark btn-primary").addClass("btn-default");
+			$allBtn.removeClass("btn-default").addClass("btn-primary-dark");
+		});
+		$bar.append($allBtn);
+		$main.prepend($bar);
 	}
 
 	load_tree(response, node) {
