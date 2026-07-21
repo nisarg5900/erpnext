@@ -300,6 +300,53 @@
    "fieldtype": "Check",
    "label": "Is Phantom Item",
    "read_only": 1
+  },
+  {
+   "fieldname": "nbc_layer2_section",
+   "fieldtype": "Section Break",
+   "label": "Warehouses & Quality",
+   "insert_after": "is_phantom",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "default_source_warehouse",
+   "fieldtype": "Link",
+   "options": "Warehouse",
+   "label": "Default Source Warehouse",
+   "insert_after": "nbc_layer2_section"
+  },
+  {
+   "fieldname": "nbc_layer2_column_break",
+   "fieldtype": "Column Break",
+   "insert_after": "default_source_warehouse"
+  },
+  {
+   "fieldname": "default_target_warehouse",
+   "fieldtype": "Link",
+   "options": "Warehouse",
+   "label": "Default Target Warehouse",
+   "insert_after": "nbc_layer2_column_break"
+  },
+  {
+   "fieldname": "inspection_required",
+   "fieldtype": "Check",
+   "label": "Inspection Required",
+   "insert_after": "default_target_warehouse"
+  },
+  {
+   "fieldname": "quality_inspection_template",
+   "fieldtype": "Link",
+   "options": "Quality Inspection Template",
+   "label": "Quality Inspection Template",
+   "insert_after": "inspection_required",
+   "depends_on": "inspection_required"
+  },
+  {
+   "fieldname": "backflush_based_on",
+   "fieldtype": "Select",
+   "label": "Backflush Based On",
+   "options": "BOM\nMaterial Transferred for Manufacture",
+   "insert_after": "quality_inspection_template"
   }
  ],
  "hide_toolbar": 1,
@@ -311,7 +358,7 @@
    "link_fieldname": "bom_creator"
   }
  ],
- "modified": "2026-04-16 20:43:30.820781",
+ "modified": "2026-07-21 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Manufacturing",
  "name": "BOM Creator",
